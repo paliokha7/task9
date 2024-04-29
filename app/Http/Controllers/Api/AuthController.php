@@ -26,14 +26,17 @@ class AuthController extends Controller
                 ],
                 'password' => 'required|string|min:8',
             ]);
-
+    
             $user = User::create([
                 'name' => $validatedData['name'],
                 'email' => $validatedData['email'],
                 'password' => Hash::make($validatedData['password']),
             ]);
+    
+            $token = $user->createToken('authToken')->plainTextToken;
 
-            return response()->json(['user' => $user, 'message' => 'User created successfully'], 201);
+                
+            return response()->json(['user' => $user, 'token' => $token, 'message' => 'User created successfully'], 201);
         } catch (ValidationException $e) {
             return response()->json(['message' => 'The given data was invalid.', 'errors' => $e->errors()], 422);
         }
@@ -41,15 +44,31 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $credentials = $request->only('email', 'password');
+        $user = User::where('email', $request->email)->first();
 
-        if (Auth::attempt($credentials)) {
-            $user = Auth::user();
-            $token = $user->createToken('MyAppToken')->plainTextToken;
-
-            return response()->json(['user' => $user, 'token' => $token], 200);
+        if(!$user) {
+            return response()->json([
+                'success' => false,
+                'data' => 'User doesn`t exist'
+            ], 400);
         }
 
-        return response()->json(['message' => 'Invalid credentials'], 401);
+        if(!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'data' => 'Wrong password'
+            ], 400);
+        }
+
+        $token = $user->createToken('default')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'token' => $token
+            ]
+        ]);
     }
+    
+
 }
